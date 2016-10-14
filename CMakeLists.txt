@@ -19,6 +19,6 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/m
 find_package (Lua 5.2 REQUIRED)
 include_directories (${LUA_INCLUDE_DIR})
 
-add_executable (luacoap src/main.cpp)
-target_link_libraries (luacoap ${libsmcp})
+add_library (luacoap SHARED src/luacoap.c)
+target_link_libraries (luacoap ${libsmcp} ${LUA_LIBRARIES})
 add_dependencies (luacoap smcp)
