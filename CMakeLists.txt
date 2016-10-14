@@ -14,6 +14,7 @@ ExternalProject_Add(smcp
 )
 ExternalProject_Get_Property(smcp install_dir)
 set (libsmcp ${install_dir}/lib/libsmcp.so)
+include_directories (${install_dir}/include)
 
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/")
 find_package (Lua 5.2 REQUIRED)
