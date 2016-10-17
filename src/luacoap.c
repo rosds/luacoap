@@ -43,14 +43,22 @@ static int coap_client_get(lua_State *L) {
   }
   stack++;
 
+  // Get transaction type
+  if (!lua_isnumber(L, stack)) {
+    return luaL_error(L, "get: second argument expected coap.CON or coap.NON");
+  }
+  int get_tt = luaL_checknumber(L, stack);
+  stack++;
+  
+
   // Get the url
   if (!lua_isstring(L, stack)) {
-    return luaL_error(L, "get: second argument is not a string.");
+    return luaL_error(L, "get: third argument is not a URL.");
   }
   size_t ln;
   const char *url = luaL_checklstring(L, stack, &ln);
 
-  if (send_get_request(cud->smcp, url) != 0) {
+  if (send_get_request(cud->smcp, get_tt, url) != 0) {
     luaL_error(L, "get: error sending request");
   }
 
@@ -75,8 +83,14 @@ int luaopen_libluacoap(lua_State *L) {
   lua_pushvalue(L, -1);
   lua_setfield(L, -1, "__index");
 
+  // Register the coap library
   luaL_newlib(L, luacoap_map);
   luaL_setfuncs(L, luacoap_map, 0);
+  lua_pushnumber(L, COAP_TRANS_TYPE_CONFIRMABLE);
+  lua_setfield(L, -2, "CON");
+  lua_pushnumber(L, COAP_TRANS_TYPE_NONCONFIRMABLE);
+  lua_setfield(L, -2, "NON");
   lua_setglobal(L, "coap");
+
   return 1;
 }

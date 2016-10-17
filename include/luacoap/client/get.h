@@ -22,6 +22,6 @@
 
 #define ERRORCODE_INPROGRESS    (127)
 
-int send_get_request(smcp_t smcp, const char *url);
+int send_get_request(smcp_t smcp, int get_tt, const char *url);
 
 #endif // COAP_CLIENT_GET_HH__

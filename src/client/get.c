@@ -1,5 +1,36 @@
 #include <luacoap/client/get.h>
 
+typedef struct {
+  char url[256];
+  bool finished,failed;
+
+  coap_code_t outbound_code;
+  coap_transaction_type_t outbound_tt;
+  coap_code_t expected_code;
+
+  coap_code_t inbound_code;
+  smcp_status_t error;
+  coap_size_t inbound_content_len;
+  int inbound_packets;
+  int inbound_dupe_packets;
+  int outbound_attempts;
+
+  uint32_t block1_option;
+  uint32_t block2_option;
+
+  bool has_block1_option;
+  bool has_block2_option;
+
+  struct timeval start_time;
+  struct timeval stop_time;
+
+  enum {
+    EXT_NONE,
+    EXT_BLOCK_01,
+    EXT_BLOCK_02,
+  } extra;
+} request_s;
+
 static int gRet;
 static sig_t previous_sigint_handler;
 static const char *url_data;
@@ -109,12 +140,20 @@ bail:
   return status;
 }
 
-int send_get_request(smcp_t smcp, const char *url) {
+int send_get_request(smcp_t smcp, int get_tt, const char *url) {
   url_data = url;
   gRet = ERRORCODE_INPROGRESS;  
   smcp_status_t status = 0;
   previous_sigint_handler = signal(SIGINT, &signal_interrupt);
   struct smcp_transaction_s transaction;
+
+  request_s request_data;
+  memset(&request_data, 0, sizeof(request_data));
+  request_data.outbound_code = COAP_METHOD_GET;
+  request_data.outbound_tt = get_tt == 0? COAP_TRANS_TYPE_CONFIRMABLE:COAP_TRANS_TYPE_NONCONFIRMABLE;
+  request_data.expected_code = COAP_RESULT_205_CONTENT;
+  request_data.extra = EXT_NONE;
+  snprintf(request_data.url, sizeof(request_data.url), "%s", url);
 
   smcp_transaction_end(smcp, &transaction);
   smcp_transaction_init(
@@ -122,7 +161,7 @@ int send_get_request(smcp_t smcp, const char *url) {
     SMCP_TRANSACTION_ALWAYS_INVALIDATE,
     (void*)&resend_get_request,
     (void*)&get_response_handler,
-    (void*)url
+    (void*)&request_data
   );
 
   status = smcp_transaction_begin(smcp, &transaction, 30 * MSEC_PER_SEC);
