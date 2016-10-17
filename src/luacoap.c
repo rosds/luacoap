@@ -1,10 +1,8 @@
 #include <smcp/smcp.h>
-#include <smcp/assert-macros.h>
 
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-#include <signal.h>
 
 #include <luacoap/client/get.h>
 
