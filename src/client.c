@@ -2,7 +2,6 @@
 
 typedef struct {
   const char* url;
-  bool finished, failed;
 
   bool with_payload;
   const char* content;
@@ -12,28 +11,6 @@ typedef struct {
   coap_code_t outbound_code;
   coap_transaction_type_t outbound_tt;
   coap_code_t expected_code;
-
-  coap_code_t inbound_code;
-  smcp_status_t error;
-  coap_size_t inbound_content_len;
-  int inbound_packets;
-  int inbound_dupe_packets;
-  int outbound_attempts;
-
-  uint32_t block1_option;
-  uint32_t block2_option;
-
-  bool has_block1_option;
-  bool has_block2_option;
-
-  struct timeval start_time;
-  struct timeval stop_time;
-
-  enum {
-    EXT_NONE,
-    EXT_BLOCK_01,
-    EXT_BLOCK_02,
-  } extra;
 } request_s;
 
 static int gRet;
@@ -148,26 +125,14 @@ bail:
   return status;
 }
 
-int send_request(smcp_t smcp, coap_code_t method, int get_tt,
-                     const char* url) {
-  gRet = ERRORCODE_INPROGRESS;
+static int create_transaction(smcp_t smcp, void* request) {
   smcp_status_t status = 0;
-  previous_sigint_handler = signal(SIGINT, &signal_interrupt);
   struct smcp_transaction_s transaction;
-
-  request_s request_data;
-  memset(&request_data, 0, sizeof(request_data));
-  request_data.outbound_code = method;
-  request_data.outbound_tt = get_tt;
-  request_data.expected_code = COAP_RESULT_205_CONTENT;
-  request_data.extra = EXT_NONE;
-  request_data.url = url;
-  request_data.with_payload = false;
-
+  previous_sigint_handler = signal(SIGINT, &signal_interrupt);
   smcp_transaction_end(smcp, &transaction);
   smcp_transaction_init(&transaction, SMCP_TRANSACTION_ALWAYS_INVALIDATE,
                         (void*)&resend_get_request,
-                        (void*)&get_response_handler, (void*)&request_data);
+                        (void*)&get_response_handler, request);
 
   status = smcp_transaction_begin(smcp, &transaction, 30 * MSEC_PER_SEC);
 
@@ -184,50 +149,39 @@ int send_request(smcp_t smcp, coap_code_t method, int get_tt,
 
   smcp_transaction_end(smcp, &transaction);
   signal(SIGINT, previous_sigint_handler);
-  url = NULL;
   return gRet;
+}
+
+int send_request(smcp_t smcp, coap_code_t method, int get_tt,
+                     const char* url) {
+  gRet = ERRORCODE_INPROGRESS;
+
+  request_s request_data;
+  memset(&request_data, 0, sizeof(request_data));
+  request_data.outbound_code = method;
+  request_data.outbound_tt = get_tt;
+  request_data.expected_code = COAP_RESULT_205_CONTENT;
+  request_data.url = url;
+  request_data.with_payload = false;
+
+  return create_transaction(smcp, (void*)&request_data);
 }
 
 int send_request_with_payload(smcp_t smcp, coap_code_t method, int get_tt,
                                   const char* url, coap_content_type_t ct,
                                   const char* payload, size_t payload_length) {
   gRet = ERRORCODE_INPROGRESS;
-  smcp_status_t status = 0;
-  previous_sigint_handler = signal(SIGINT, &signal_interrupt);
-  struct smcp_transaction_s transaction;
 
   request_s request_data;
   memset(&request_data, 0, sizeof(request_data));
   request_data.outbound_code = method;
   request_data.outbound_tt = get_tt;
   request_data.expected_code = COAP_RESULT_205_CONTENT;
-  request_data.extra = EXT_NONE;
   request_data.url = url;
   request_data.content = payload;
   request_data.content_len = payload_length;
   request_data.ct = ct;
   request_data.with_payload = true;
 
-  smcp_transaction_end(smcp, &transaction);
-  smcp_transaction_init(&transaction, SMCP_TRANSACTION_ALWAYS_INVALIDATE,
-                        (void*)&resend_get_request,
-                        (void*)&get_response_handler, (void*)&request_data);
-
-  status = smcp_transaction_begin(smcp, &transaction, 30 * MSEC_PER_SEC);
-
-  if (status) {
-    fprintf(stderr, "smcp_begin_transaction_old() returned %d(%s).\n", status,
-            smcp_status_to_cstr(status));
-    return false;
-  }
-
-  while (ERRORCODE_INPROGRESS == gRet) {
-    smcp_wait(smcp, 1000);
-    smcp_process(smcp);
-  }
-
-  smcp_transaction_end(smcp, &transaction);
-  signal(SIGINT, previous_sigint_handler);
-  url = NULL;
-  return gRet;
+  return create_transaction(smcp, (void*)&request_data);
 }
