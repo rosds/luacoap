@@ -32,7 +32,7 @@ static int coap_client_gc(lua_State *L) {
   return 0;
 }
 
-static int coap_client_get(lua_State *L) {
+static int coap_client_send_request(coap_code_t method, lua_State *L) {
   coap_transaction_type_t tt = COAP_TRANS_TYPE_CONFIRMABLE;
   coap_content_type_t ct = COAP_CONTENT_TYPE_TEXT_PLAIN;
 
@@ -53,7 +53,8 @@ static int coap_client_get(lua_State *L) {
 
     if ((tt != COAP_TRANS_TYPE_CONFIRMABLE) &&
         tt != (COAP_TRANS_TYPE_NONCONFIRMABLE)) {
-      return luaL_error(L, "Invalid transaction type, use coap.CON or coap.NON");
+      return luaL_error(L,
+                        "Invalid transaction type, use coap.CON or coap.NON");
     }
   }
 
@@ -74,7 +75,8 @@ static int coap_client_get(lua_State *L) {
     const char *payload = luaL_checklstring(L, stack, &payload_len);
     stack++;
 
-    if (send_get_request_with_payload(cud->smcp, tt, url, ct, payload, payload_len) != 0) {
+    if (send_get_request_with_payload(cud->smcp, tt, url, ct, payload,
+                                      payload_len) != 0) {
       luaL_error(L, "Error sending request");
     }
   } else {
@@ -86,11 +88,28 @@ static int coap_client_get(lua_State *L) {
   return 0;
 }
 
-static const struct luaL_Reg luacoap_client_map[] = {
-    {"get", coap_client_get}, {"__gc", coap_client_gc}, {NULL, NULL}};
+static int coap_client_get(lua_State *L) {
+  coap_client_send_request(COAP_METHOD_GET, L);
+}
+static int coap_client_put(lua_State *L) {
+  coap_client_send_request(COAP_METHOD_PUT, L);
+}
+static int coap_client_post(lua_State *L) {
+  coap_client_send_request(COAP_METHOD_POST, L);
+}
 
-static const struct luaL_Reg luacoap_map[] = {{"Client", coap_create_client},
-                                              {NULL, NULL}};
+static const struct luaL_Reg luacoap_client_map[] = {
+    {"get", coap_client_get}, 
+    {"post", coap_client_get}, 
+    {"put", coap_client_get}, 
+    {"__gc", coap_client_gc}, 
+    {NULL, NULL}
+};
+
+static const struct luaL_Reg luacoap_map[] = {
+  {"Client", coap_create_client},
+  {NULL, NULL}
+};
 
 int luaopen_libluacoap(lua_State *L) {
   // Declare the client metatable

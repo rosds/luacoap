@@ -42,7 +42,6 @@ static void signal_interrupt(int sig) {
   gRet = ERRORCODE_INTERRUPT;
   signal(SIGINT, previous_sigint_handler);
 }
-static coap_content_type_t request_accept_type = -1;
 
 static smcp_status_t get_response_handler(int statuscode, void* context) {
   const char* content = (const char*)smcp_inbound_get_content_ptr();
@@ -128,12 +127,6 @@ static smcp_status_t resend_get_request(void* context) {
 
   status = smcp_outbound_set_uri(request->url, 0);
   require_noerr(status, bail);
-
-  if (request_accept_type != COAP_CONTENT_TYPE_UNKNOWN) {
-    status =
-        smcp_outbound_add_option_uint(COAP_OPTION_ACCEPT, request_accept_type);
-    require_noerr(status, bail);
-  }
 
   if (request->with_payload) {
     status = smcp_outbound_add_option_uint(COAP_OPTION_CONTENT_TYPE, request->ct);
