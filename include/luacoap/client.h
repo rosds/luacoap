@@ -22,7 +22,10 @@
 
 #define ERRORCODE_INPROGRESS (127)
 
-int send_get_request(smcp_t smcp, int get_tt, const char *url);
-int send_get_request_with_payload(smcp_t smcp, int get_tt, const char *url, coap_content_type_t ct, const char *payload, size_t payload_length);
+int send_request(smcp_t smcp, coap_code_t method, int get_tt,
+                     const char *url);
+int send_request_with_payload(smcp_t smcp, coap_code_t method, int get_tt,
+                                  const char *url, coap_content_type_t ct,
+                                  const char *payload, size_t payload_length);
 
 #endif  // COAP_CLIENT_HH__

@@ -75,12 +75,12 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     const char *payload = luaL_checklstring(L, stack, &payload_len);
     stack++;
 
-    if (send_get_request_with_payload(cud->smcp, tt, url, ct, payload,
+    if (send_request_with_payload(cud->smcp, method, tt, url, ct, payload,
                                       payload_len) != 0) {
       luaL_error(L, "Error sending request");
     }
   } else {
-    if (send_get_request(cud->smcp, tt, url) != 0) {
+    if (send_request(cud->smcp, method, tt, url) != 0) {
       luaL_error(L, "Error sending request");
     }
   }
@@ -100,8 +100,8 @@ static int coap_client_post(lua_State *L) {
 
 static const struct luaL_Reg luacoap_client_map[] = {
     {"get", coap_client_get}, 
-    {"post", coap_client_get}, 
-    {"put", coap_client_get}, 
+    {"put", coap_client_put}, 
+    {"post", coap_client_post}, 
     {"__gc", coap_client_gc}, 
     {NULL, NULL}
 };

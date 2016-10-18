@@ -1,11 +1,11 @@
 #include <luacoap/client.h>
 
 typedef struct {
-  const char *url;
+  const char* url;
   bool finished, failed;
 
   bool with_payload;
-  const char *content;
+  const char* content;
   coap_size_t content_len;
   coap_content_type_t ct;
 
@@ -116,7 +116,6 @@ bail:
   return SMCP_STATUS_OK;
 }
 
-
 static smcp_status_t resend_get_request(void* context) {
   request_s* request = (request_s*)context;
   smcp_status_t status = 0;
@@ -129,10 +128,12 @@ static smcp_status_t resend_get_request(void* context) {
   require_noerr(status, bail);
 
   if (request->with_payload) {
-    status = smcp_outbound_add_option_uint(COAP_OPTION_CONTENT_TYPE, request->ct);
+    status =
+        smcp_outbound_add_option_uint(COAP_OPTION_CONTENT_TYPE, request->ct);
     require_noerr(status, bail);
 
-    status = smcp_outbound_append_content(request->content, request->content_len);
+    status =
+        smcp_outbound_append_content(request->content, request->content_len);
     require_noerr(status, bail);
   }
 
@@ -147,8 +148,8 @@ bail:
   return status;
 }
 
-
-int send_get_request(smcp_t smcp, int get_tt, const char* url) {
+int send_request(smcp_t smcp, coap_code_t method, int get_tt,
+                     const char* url) {
   gRet = ERRORCODE_INPROGRESS;
   smcp_status_t status = 0;
   previous_sigint_handler = signal(SIGINT, &signal_interrupt);
@@ -156,7 +157,7 @@ int send_get_request(smcp_t smcp, int get_tt, const char* url) {
 
   request_s request_data;
   memset(&request_data, 0, sizeof(request_data));
-  request_data.outbound_code = COAP_METHOD_GET;
+  request_data.outbound_code = method;
   request_data.outbound_tt = get_tt;
   request_data.expected_code = COAP_RESULT_205_CONTENT;
   request_data.extra = EXT_NONE;
@@ -187,7 +188,9 @@ int send_get_request(smcp_t smcp, int get_tt, const char* url) {
   return gRet;
 }
 
-int send_get_request_with_payload(smcp_t smcp, int get_tt, const char* url, coap_content_type_t ct, const char *payload, size_t payload_length) {
+int send_request_with_payload(smcp_t smcp, coap_code_t method, int get_tt,
+                                  const char* url, coap_content_type_t ct,
+                                  const char* payload, size_t payload_length) {
   gRet = ERRORCODE_INPROGRESS;
   smcp_status_t status = 0;
   previous_sigint_handler = signal(SIGINT, &signal_interrupt);
@@ -195,7 +198,7 @@ int send_get_request_with_payload(smcp_t smcp, int get_tt, const char* url, coap
 
   request_s request_data;
   memset(&request_data, 0, sizeof(request_data));
-  request_data.outbound_code = COAP_METHOD_GET;
+  request_data.outbound_code = method;
   request_data.outbound_tt = get_tt;
   request_data.expected_code = COAP_RESULT_205_CONTENT;
   request_data.extra = EXT_NONE;
