@@ -22,7 +22,7 @@ find_package (Lua 5.2 REQUIRED)
 include_directories (${LUA_INCLUDE_DIR})
 
 include_directories (include)
-add_library (luacoap SHARED src/luacoap.c src/client/get.c)
+add_library (luacoap SHARED src/luacoap.c src/client.c)
 
 target_link_libraries (luacoap ${libsmcp} ${LUA_LIBRARIES})
 add_dependencies (luacoap smcp)

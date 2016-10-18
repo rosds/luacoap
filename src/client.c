@@ -1,4 +1,4 @@
-#include <luacoap/client/get.h>
+#include <luacoap/client.h>
 
 typedef struct {
   const char *url;

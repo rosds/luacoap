@@ -1,5 +1,5 @@
-#ifndef COAP_CLIENT_GET_HH__
-#define COAP_CLIENT_GET_HH__
+#ifndef COAP_CLIENT_HH__
+#define COAP_CLIENT_HH__
 
 #include <signal.h>
 #include <smcp/assert-macros.h>
@@ -25,4 +25,4 @@
 int send_get_request(smcp_t smcp, int get_tt, const char *url);
 int send_get_request_with_payload(smcp_t smcp, int get_tt, const char *url, coap_content_type_t ct, const char *payload, size_t payload_length);
 
-#endif  // COAP_CLIENT_GET_HH__
+#endif  // COAP_CLIENT_HH__

@@ -4,7 +4,7 @@
 #include <lua.h>
 #include <lualib.h>
 
-#include <luacoap/client/get.h>
+#include <luacoap/client.h>
 
 #define CLIENT_MT_NAME "coap_client"
 
