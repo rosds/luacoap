@@ -1,16 +1,14 @@
 #include <smcp/smcp.h>
 
+#include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
-#include <lauxlib.h>
 
 #include <luacoap/client/get.h>
 
 #define CLIENT_MT_NAME "coap_client"
 
-typedef struct lcoap_userdata {
-  smcp_t smcp;
-} lcoap_userdata;
+typedef struct lcoap_userdata { smcp_t smcp; } lcoap_userdata;
 
 static int coap_create_client(lua_State *L) {
   lcoap_userdata *cud;
@@ -25,7 +23,8 @@ static int coap_create_client(lua_State *L) {
 
 static int coap_client_gc(lua_State *L) {
   int stack = 1;
-  lcoap_userdata *cud = (lcoap_userdata *)luaL_checkudata(L, stack, CLIENT_MT_NAME);
+  lcoap_userdata *cud =
+      (lcoap_userdata *)luaL_checkudata(L, stack, CLIENT_MT_NAME);
   luaL_argcheck(L, cud, stack, "Server/Client expected");
   if (cud != NULL) {
     free(cud->smcp);
@@ -34,47 +33,64 @@ static int coap_client_gc(lua_State *L) {
 }
 
 static int coap_client_get(lua_State *L) {
+  coap_transaction_type_t tt = COAP_TRANS_TYPE_CONFIRMABLE;
+  coap_content_type_t ct = COAP_CONTENT_TYPE_TEXT_PLAIN;
+
   // Get the coap client
   int stack = 1;
-  lcoap_userdata *cud = (lcoap_userdata *)luaL_checkudata(L, stack, CLIENT_MT_NAME);
+  lcoap_userdata *cud =
+      (lcoap_userdata *)luaL_checkudata(L, stack, CLIENT_MT_NAME);
   luaL_argcheck(L, cud, stack, "Client expected");
   if (cud == NULL) {
-    return luaL_error(L, "get: first argument is not a a client.");
+    return luaL_error(L, "First argument is not of class Client");
   }
   stack++;
 
   // Get transaction type
-  if (!lua_isnumber(L, stack)) {
-    return luaL_error(L, "get: second argument expected coap.CON or coap.NON");
+  if (lua_isnumber(L, stack)) {
+    tt = lua_tointeger(L, stack);
+    stack++;
+
+    if ((tt != COAP_TRANS_TYPE_CONFIRMABLE) &&
+        tt != (COAP_TRANS_TYPE_NONCONFIRMABLE)) {
+      return luaL_error(L, "Invalid transaction type, use coap.CON or coap.NON");
+    }
   }
-  int get_tt = luaL_checknumber(L, stack);
-  stack++;
-  
 
   // Get the url
-  if (!lua_isstring(L, stack)) {
-    return luaL_error(L, "get: third argument is not a URL.");
-  }
   size_t ln;
   const char *url = luaL_checklstring(L, stack, &ln);
+  stack++;
 
-  if (send_get_request(cud->smcp, get_tt, url) != 0) {
-    luaL_error(L, "get: error sending request");
+  if (url == NULL) return luaL_error(L, "Invalid URL");
+
+  // Optional content type and payload
+  if (lua_isnumber(L, stack)) {
+    ct = lua_tointeger(L, stack);
+    stack++;
+
+    // get the payload
+    size_t payload_len;
+    const char *payload = luaL_checklstring(L, stack, &payload_len);
+    stack++;
+
+    if (send_get_request_with_payload(cud->smcp, tt, url, ct, payload, payload_len) != 0) {
+      luaL_error(L, "Error sending request");
+    }
+  } else {
+    if (send_get_request(cud->smcp, tt, url) != 0) {
+      luaL_error(L, "Error sending request");
+    }
   }
 
   return 0;
 }
 
 static const struct luaL_Reg luacoap_client_map[] = {
-  {"get", coap_client_get},
-  {"__gc", coap_client_gc},
-  {NULL, NULL}
-};
+    {"get", coap_client_get}, {"__gc", coap_client_gc}, {NULL, NULL}};
 
-static const struct luaL_Reg luacoap_map[] = {
-  {"Client", coap_create_client},
-  {NULL, NULL}
-};
+static const struct luaL_Reg luacoap_map[] = {{"Client", coap_create_client},
+                                              {NULL, NULL}};
 
 int luaopen_libluacoap(lua_State *L) {
   // Declare the client metatable
