@@ -29,3 +29,13 @@ target_link_libraries (coap ${libsmcp} ${LUA_LIBRARIES})
 add_dependencies (coap smcp)
 
 install (FILES ${CMAKE_BINARY_DIR}/coap.so DESTINATION lib/lua/5.2)
+
+set (CPACK_GENERATOR "DEB")
+set (CPACK_PACKAGE_NAME ${CMAKE_PROJECT_NAME})
+set (CPACK_SET_DESTDIR TRUE)
+set (CPACK_DEBIAN_PACKAGE_MAINTAINER "Alfonso Ros")
+set (CPACK_PACKAGE_VERSION_MAJOR "0")
+set (CPACK_PACKAGE_VERSION_MINOR "0")
+set (CPACK_PACKAGE_VERSION_PATCH "1~alpha1")
+set (CPACK_OUTPUT_FILE_PREFIX "${CMAKE_SOURCE_DIR}/downloads")
+include (CPack)
