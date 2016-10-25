@@ -111,7 +111,7 @@ static const struct luaL_Reg luacoap_map[] = {
   {NULL, NULL}
 };
 
-int luaopen_libluacoap(lua_State *L) {
+int luaopen_coap(lua_State *L) {
   // Declare the client metatable
   luaL_newmetatable(L, CLIENT_MT_NAME);
   luaL_setfuncs(L, luacoap_client_map, 0);
@@ -125,7 +125,6 @@ int luaopen_libluacoap(lua_State *L) {
   lua_setfield(L, -2, "CON");
   lua_pushnumber(L, COAP_TRANS_TYPE_NONCONFIRMABLE);
   lua_setfield(L, -2, "NON");
-  lua_setglobal(L, "coap");
 
   return 1;
 }

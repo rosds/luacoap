@@ -16,7 +16,15 @@ cmake ..
 make
 ```
 
-the output its a `libluacoap.so` shared library that can be loaded into lua.
+the output its a `coap.so` shared library that can be loaded into lua.
+
+You can optionally install this library on your `lib/lua/5.2` with:
+
+```bash
+sudo make install
+```
+
+and you can use this module independently of your location.
 
 ### Usage
 
@@ -26,7 +34,7 @@ client.
 #### Example
 
 ```lua
-require("libluacoap")
+coap = require("coap")
 client = coap.Client()
 client:get(coap.CON, "coap://coap.me/test")
 ```
@@ -34,9 +42,9 @@ client:get(coap.CON, "coap://coap.me/test")
 The current available functions are
 
 ```lua
-client:get([ ConnectionType ,] url, [ ContentType, Payload ])
-client:put([ ConnectionType ,] url, [ ContentType, Payload ])
-client:post([ ConnectionType ,] url, [ ContentType, Payload ])
+client:get([ ConnectionType ,] url [, ContentType, Payload ])
+client:put([ ConnectionType ,] url [, ContentType, Payload ])
+client:post([ ConnectionType ,] url [, ContentType, Payload ])
 ```
 
 where:

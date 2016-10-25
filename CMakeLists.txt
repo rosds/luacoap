@@ -22,7 +22,10 @@ find_package (Lua 5.2 REQUIRED)
 include_directories (${LUA_INCLUDE_DIR})
 
 include_directories (include)
-add_library (luacoap SHARED src/luacoap.c src/client.c)
+add_library (coap SHARED src/luacoap.c src/client.c)
+set_target_properties (coap PROPERTIES PREFIX "")
 
-target_link_libraries (luacoap ${libsmcp} ${LUA_LIBRARIES})
-add_dependencies (luacoap smcp)
+target_link_libraries (coap ${libsmcp} ${LUA_LIBRARIES})
+add_dependencies (coap smcp)
+
+install (FILES ${CMAKE_BINARY_DIR}/coap.so DESTINATION lib/lua/5.2)
