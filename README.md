@@ -53,3 +53,13 @@ where:
 * url is the address to the resource
 * ContentType is any of the CoAP supported content types
 * Payload is the data you want to send
+
+#### Observe
+
+Currently observe is available only without payload
+
+```lua
+coap = require("coap")
+client = coap.Client()
+client:observe("coap://coap.me/test")
+```

@@ -8,11 +8,14 @@ typedef struct {
   coap_size_t content_len;
   coap_content_type_t ct;
 
+  cms_t timeout;
+
   coap_code_t outbound_code;
   coap_transaction_type_t outbound_tt;
   coap_code_t expected_code;
 } request_s;
 
+static bool observe;
 static int gRet;
 static sig_t previous_sigint_handler;
 static void signal_interrupt(int sig) {
@@ -129,8 +132,14 @@ static int create_transaction(smcp_t smcp, void* request) {
   smcp_status_t status = 0;
   struct smcp_transaction_s transaction;
   previous_sigint_handler = signal(SIGINT, &signal_interrupt);
+
+  int flags = SMCP_TRANSACTION_ALWAYS_INVALIDATE;
+
+  if (observe)
+      flags |= SMCP_TRANSACTION_OBSERVE;
+
   smcp_transaction_end(smcp, &transaction);
-  smcp_transaction_init(&transaction, SMCP_TRANSACTION_ALWAYS_INVALIDATE,
+  smcp_transaction_init(&transaction, flags,
                         (void*)&resend_get_request,
                         (void*)&get_response_handler, request);
 
@@ -152,9 +161,27 @@ static int create_transaction(smcp_t smcp, void* request) {
   return gRet;
 }
 
-int send_request(smcp_t smcp, coap_code_t method, int get_tt,
-                     const char* url) {
+int observe_request(smcp_t smcp, int get_tt, const char* url) {
   gRet = ERRORCODE_INPROGRESS;
+
+  observe = true;
+
+  request_s request_data;
+  memset(&request_data, 0, sizeof(request_data));
+  request_data.outbound_code = COAP_METHOD_GET;
+  request_data.outbound_tt = get_tt;
+  request_data.expected_code = COAP_RESULT_205_CONTENT;
+  request_data.url = url;
+  request_data.timeout = CMS_DISTANT_FUTURE;
+  request_data.with_payload = false;
+
+  return create_transaction(smcp, (void*)&request_data);
+}
+
+int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char* url) {
+  gRet = ERRORCODE_INPROGRESS;
+
+  observe = true;
 
   request_s request_data;
   memset(&request_data, 0, sizeof(request_data));
@@ -162,15 +189,18 @@ int send_request(smcp_t smcp, coap_code_t method, int get_tt,
   request_data.outbound_tt = get_tt;
   request_data.expected_code = COAP_RESULT_205_CONTENT;
   request_data.url = url;
+  request_data.timeout = 30 * MSEC_PER_SEC;
   request_data.with_payload = false;
 
   return create_transaction(smcp, (void*)&request_data);
 }
 
 int send_request_with_payload(smcp_t smcp, coap_code_t method, int get_tt,
-                                  const char* url, coap_content_type_t ct,
-                                  const char* payload, size_t payload_length) {
+                              const char* url, coap_content_type_t ct,
+                              const char* payload, size_t payload_length) {
   gRet = ERRORCODE_INPROGRESS;
+
+  observe = true;
 
   request_s request_data;
   memset(&request_data, 0, sizeof(request_data));
@@ -181,6 +211,7 @@ int send_request_with_payload(smcp_t smcp, coap_code_t method, int get_tt,
   request_data.content = payload;
   request_data.content_len = payload_length;
   request_data.ct = ct;
+  request_data.timeout = 30 * MSEC_PER_SEC;
   request_data.with_payload = true;
 
   return create_transaction(smcp, (void*)&request_data);

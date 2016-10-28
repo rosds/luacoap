@@ -7,6 +7,7 @@
 #include <luacoap/client.h>
 
 #define CLIENT_MT_NAME "coap_client"
+#define COAP_METHOD_OBSERVE 5
 
 typedef struct lcoap_userdata { smcp_t smcp; } lcoap_userdata;
 
@@ -80,8 +81,14 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
       luaL_error(L, "Error sending request");
     }
   } else {
-    if (send_request(cud->smcp, method, tt, url) != 0) {
-      luaL_error(L, "Error sending request");
+    if (method == COAP_METHOD_OBSERVE) {
+      if (observe_request(cud->smcp, tt, url) != 0) {
+        luaL_error(L, "Error sending request");
+      } 
+    } else {
+      if (send_request(cud->smcp, method, tt, url) != 0) {
+        luaL_error(L, "Error sending request");
+      }
     }
   }
 
@@ -97,11 +104,15 @@ static int coap_client_put(lua_State *L) {
 static int coap_client_post(lua_State *L) {
   coap_client_send_request(COAP_METHOD_POST, L);
 }
+static int coap_client_observe(lua_State *L) {
+  coap_client_send_request(COAP_METHOD_OBSERVE, L);
+}
 
 static const struct luaL_Reg luacoap_client_map[] = {
     {"get", coap_client_get}, 
     {"put", coap_client_put}, 
     {"post", coap_client_post}, 
+    {"observe", coap_client_observe}, 
     {"__gc", coap_client_gc}, 
     {NULL, NULL}
 };
