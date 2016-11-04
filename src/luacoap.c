@@ -76,17 +76,17 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     const char *payload = luaL_checklstring(L, stack, &payload_len);
     stack++;
 
-    if (send_request_with_payload(cud->smcp, method, tt, url, ct, payload,
-                                      payload_len) != 0) {
+    if (send_request(cud->smcp, method, tt, url, ct, payload,
+                                      payload_len, false) != 0) {
       luaL_error(L, "Error sending request");
     }
   } else {
     if (method == COAP_METHOD_OBSERVE) {
-      if (observe_request(cud->smcp, tt, url) != 0) {
+      if (send_request(cud->smcp, COAP_METHOD_GET, tt, url, 0, NULL, 0, true) != 0) {
         luaL_error(L, "Error sending request");
       } 
     } else {
-      if (send_request(cud->smcp, method, tt, url) != 0) {
+      if (send_request(cud->smcp, method, tt, url, 0, NULL, 0, false) != 0) {
         luaL_error(L, "Error sending request");
       }
     }

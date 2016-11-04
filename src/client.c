@@ -3,7 +3,6 @@
 typedef struct {
   const char* url;
 
-  bool with_payload;
   const char* content;
   coap_size_t content_len;
   coap_content_type_t ct;
@@ -68,17 +67,12 @@ static smcp_status_t get_response_handler(int statuscode, void* context) {
     const uint8_t* value;
     coap_size_t value_len;
     bool last_block = true;
-    int32_t observe_value = -1;
 
     while ((key = smcp_inbound_next_option(&value, &value_len)) !=
            COAP_OPTION_INVALID) {
       if (key == COAP_OPTION_BLOCK2) {
         last_block = !(value[value_len - 1] & (1 << 3));
       } else if (key == COAP_OPTION_OBSERVE) {
-        if (value_len)
-          observe_value = value[0];
-        else
-          observe_value = 0;
       }
     }
 
@@ -107,7 +101,7 @@ static smcp_status_t resend_get_request(void* context) {
   status = smcp_outbound_set_uri(request->url, 0);
   require_noerr(status, bail);
 
-  if (request->with_payload) {
+  if (request->content) {
     status =
         smcp_outbound_add_option_uint(COAP_OPTION_CONTENT_TYPE, request->ct);
     require_noerr(status, bail);
@@ -135,12 +129,10 @@ static int create_transaction(smcp_t smcp, void* request) {
 
   int flags = SMCP_TRANSACTION_ALWAYS_INVALIDATE;
 
-  if (observe)
-      flags |= SMCP_TRANSACTION_OBSERVE;
+  if (observe) flags |= SMCP_TRANSACTION_OBSERVE;
 
   smcp_transaction_end(smcp, &transaction);
-  smcp_transaction_init(&transaction, flags,
-                        (void*)&resend_get_request,
+  smcp_transaction_init(&transaction, flags, (void*)&resend_get_request,
                         (void*)&get_response_handler, request);
 
   status = smcp_transaction_begin(smcp, &transaction, 30 * MSEC_PER_SEC);
@@ -161,46 +153,11 @@ static int create_transaction(smcp_t smcp, void* request) {
   return gRet;
 }
 
-int observe_request(smcp_t smcp, int get_tt, const char* url) {
+int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char* url,
+                 coap_content_type_t ct, const char* payload,
+                 size_t payload_length, bool obs) {
   gRet = ERRORCODE_INPROGRESS;
-
-  observe = true;
-
-  request_s request_data;
-  memset(&request_data, 0, sizeof(request_data));
-  request_data.outbound_code = COAP_METHOD_GET;
-  request_data.outbound_tt = get_tt;
-  request_data.expected_code = COAP_RESULT_205_CONTENT;
-  request_data.url = url;
-  request_data.timeout = CMS_DISTANT_FUTURE;
-  request_data.with_payload = false;
-
-  return create_transaction(smcp, (void*)&request_data);
-}
-
-int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char* url) {
-  gRet = ERRORCODE_INPROGRESS;
-
-  observe = true;
-
-  request_s request_data;
-  memset(&request_data, 0, sizeof(request_data));
-  request_data.outbound_code = method;
-  request_data.outbound_tt = get_tt;
-  request_data.expected_code = COAP_RESULT_205_CONTENT;
-  request_data.url = url;
-  request_data.timeout = 30 * MSEC_PER_SEC;
-  request_data.with_payload = false;
-
-  return create_transaction(smcp, (void*)&request_data);
-}
-
-int send_request_with_payload(smcp_t smcp, coap_code_t method, int get_tt,
-                              const char* url, coap_content_type_t ct,
-                              const char* payload, size_t payload_length) {
-  gRet = ERRORCODE_INPROGRESS;
-
-  observe = true;
+  observe = obs;
 
   request_s request_data;
   memset(&request_data, 0, sizeof(request_data));
@@ -211,8 +168,12 @@ int send_request_with_payload(smcp_t smcp, coap_code_t method, int get_tt,
   request_data.content = payload;
   request_data.content_len = payload_length;
   request_data.ct = ct;
-  request_data.timeout = 30 * MSEC_PER_SEC;
-  request_data.with_payload = true;
+
+  if (observe) {
+    request_data.timeout = CMS_DISTANT_FUTURE;
+  } else {
+    request_data.timeout = 30 * MSEC_PER_SEC;
+  }
 
   return create_transaction(smcp, (void*)&request_data);
 }
