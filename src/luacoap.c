@@ -66,6 +66,9 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
 
   if (url == NULL) return luaL_error(L, "Invalid URL");
 
+  size_t payload_len;
+  const char *payload = NULL;
+
   // Optional content type and payload
   if (lua_isnumber(L, stack)) {
     ct = lua_tointeger(L, stack);
@@ -75,20 +78,15 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     size_t payload_len;
     const char *payload = luaL_checklstring(L, stack, &payload_len);
     stack++;
+  } 
 
-    if (send_request_with_payload(cud->smcp, method, tt, url, ct, payload,
-                                      payload_len) != 0) {
+  if (method == COAP_METHOD_OBSERVE) {
+    if (send_request(cud->smcp, COAP_METHOD_GET, tt, url, ct, payload, payload_len, true) != 0) {
       luaL_error(L, "Error sending request");
-    }
+    } 
   } else {
-    if (method == COAP_METHOD_OBSERVE) {
-      if (observe_request(cud->smcp, tt, url) != 0) {
-        luaL_error(L, "Error sending request");
-      } 
-    } else {
-      if (send_request(cud->smcp, method, tt, url) != 0) {
-        luaL_error(L, "Error sending request");
-      }
+    if (send_request(cud->smcp, method, tt, url, ct, payload, payload_len, false) != 0) {
+      luaL_error(L, "Error sending request");
     }
   }
 
