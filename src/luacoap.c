@@ -78,47 +78,52 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     size_t payload_len;
     const char *payload = luaL_checklstring(L, stack, &payload_len);
     stack++;
-  } 
+  }
+
+  char return_content[2048];
+  size_t return_content_size = 0;
 
   if (method == COAP_METHOD_OBSERVE) {
-    if (send_request(cud->smcp, COAP_METHOD_GET, tt, url, ct, payload, payload_len, true) != 0) {
-      luaL_error(L, "Error sending request");
-    } 
-  } else {
-    if (send_request(cud->smcp, method, tt, url, ct, payload, payload_len, false) != 0) {
+    if (send_request(cud->smcp, COAP_METHOD_GET, tt, url, ct, payload,
+                     payload_len, true, &return_content[0],
+                     &return_content_size) != 0) {
       luaL_error(L, "Error sending request");
     }
+  } else {
+    if (send_request(cud->smcp, method, tt, url, ct, payload, payload_len,
+                     false, &return_content[0], &return_content_size) != 0) {
+      luaL_error(L, "Error sending request");
+    }
+  }
+
+  if (return_content_size > 0) {
+    lua_pushlstring(L, return_content, return_content_size);
+    return 1;
   }
 
   return 0;
 }
 
 static int coap_client_get(lua_State *L) {
-  coap_client_send_request(COAP_METHOD_GET, L);
+  return coap_client_send_request(COAP_METHOD_GET, L);
 }
 static int coap_client_put(lua_State *L) {
-  coap_client_send_request(COAP_METHOD_PUT, L);
+  return coap_client_send_request(COAP_METHOD_PUT, L);
 }
 static int coap_client_post(lua_State *L) {
-  coap_client_send_request(COAP_METHOD_POST, L);
+  return coap_client_send_request(COAP_METHOD_POST, L);
 }
 static int coap_client_observe(lua_State *L) {
-  coap_client_send_request(COAP_METHOD_OBSERVE, L);
+  return coap_client_send_request(COAP_METHOD_OBSERVE, L);
 }
 
 static const struct luaL_Reg luacoap_client_map[] = {
-    {"get", coap_client_get}, 
-    {"put", coap_client_put}, 
-    {"post", coap_client_post}, 
-    {"observe", coap_client_observe}, 
-    {"__gc", coap_client_gc}, 
-    {NULL, NULL}
-};
+    {"get", coap_client_get},   {"put", coap_client_put},
+    {"post", coap_client_post}, {"observe", coap_client_observe},
+    {"__gc", coap_client_gc},   {NULL, NULL}};
 
-static const struct luaL_Reg luacoap_map[] = {
-  {"Client", coap_create_client},
-  {NULL, NULL}
-};
+static const struct luaL_Reg luacoap_map[] = {{"Client", coap_create_client},
+                                              {NULL, NULL}};
 
 int luaopen_coap(lua_State *L) {
   // Declare the client metatable

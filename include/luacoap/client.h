@@ -24,6 +24,7 @@
 
 int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char *url,
                  coap_content_type_t ct, const char *payload,
-                 size_t payload_length, bool observe);
+                 size_t payload_length, bool observe, char *output_content,
+                 size_t *content_size);
 
 #endif  // COAP_CLIENT_HH__

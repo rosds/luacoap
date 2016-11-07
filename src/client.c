@@ -14,6 +14,9 @@ typedef struct {
   coap_code_t expected_code;
 } request_s;
 
+static char *return_content;
+static size_t *return_content_size;
+
 static bool observe;
 static int gRet;
 static sig_t previous_sigint_handler;
@@ -51,7 +54,7 @@ static smcp_status_t get_response_handler(int statuscode, void* context) {
   if (((statuscode < COAP_RESULT_200) || (statuscode >= COAP_RESULT_400)) &&
       (statuscode != SMCP_STATUS_TRANSACTION_INVALIDATED) &&
       (statuscode != HTTP_TO_COAP_CODE(HTTP_RESULT_CODE_PARTIAL_CONTENT))) {
-    if (statuscode == SMCP_STATUS_TIMEOUT) {
+    if (observe && statuscode == SMCP_STATUS_TIMEOUT) {
       gRet = 0;
     } else {
       gRet = (statuscode == SMCP_STATUS_TIMEOUT) ? ERRORCODE_TIMEOUT
@@ -76,14 +79,10 @@ static smcp_status_t get_response_handler(int statuscode, void* context) {
       }
     }
 
-    fwrite(content, content_length, 1, stdout);
-
-    if (last_block) {
-      // Only print a newline if the content doesn't already print one.
-      if (content_length && (content[content_length - 1] != '\n')) printf("\n");
-    }
-
-    fflush(stdout);
+    // Write the content to the user buffer
+    // TODO: This might raise some overflows
+    memcpy(return_content + *return_content_size, content, content_length);
+    *return_content_size = *return_content_size + content_length;
   }
 
 bail:
@@ -155,7 +154,7 @@ static int create_transaction(smcp_t smcp, void* request) {
 
 int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char* url,
                  coap_content_type_t ct, const char* payload,
-                 size_t payload_length, bool obs) {
+                 size_t payload_length, bool obs, char *output_content, size_t *output_size) {
   gRet = ERRORCODE_INPROGRESS;
   observe = obs;
 
@@ -174,6 +173,9 @@ int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char* url,
   } else {
     request_data.timeout = 30 * MSEC_PER_SEC;
   }
+
+  return_content_size = output_size;
+  return_content = output_content;
 
   return create_transaction(smcp, (void*)&request_data);
 }

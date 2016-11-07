@@ -26,6 +26,9 @@ sudo make install
 
 and you can use this module independently of your location.
 
+Optionally, you can download and install the [debian 
+package](https://github.com/alfonsoros88/luacoap/raw/master/downloads/luacoap-0.0.1%7Ealpha1-Linux.deb).
+
 ### Usage
 
 Currently it is only possible to send GET, PUT and POST request using the CoAP 
@@ -36,7 +39,8 @@ client.
 ```lua
 coap = require("coap")
 client = coap.Client()
-client:get(coap.CON, "coap://coap.me/test")
+ret = client:get(coap.CON, "coap://coap.me/test")
+print(ret)
 ```
 
 The current available functions are
