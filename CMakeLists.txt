@@ -3,6 +3,8 @@ project (luacoap C)
 
 include (ExternalProject)
 
+set (CMAKE_BUILD_TYPE Release)
+
 set (luacoap_VERSION_MAJOR 0)
 set (luacoap_VERSION_MINOR 1)
 set (luacoap_VERSION_PATCH 0)
@@ -11,6 +13,7 @@ ExternalProject_Add(smcp
   GIT_REPOSITORY https://github.com/darconeous/smcp
   GIT_TAG "0.6.5"
   SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/smcp
+  INSTALL_DIR ${CMAKE_INSTALL_PREFIX}
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
   CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/smcp/bootstrap.sh &&
   ${CMAKE_CURRENT_BINARY_DIR}/smcp/configure --prefix=<INSTALL_DIR>
