@@ -75,8 +75,8 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     stack++;
 
     // get the payload
-    size_t payload_len;
-    const char *payload = luaL_checklstring(L, stack, &payload_len);
+    payload_len;
+    payload = luaL_checklstring(L, stack, &payload_len);
     stack++;
   }
 
