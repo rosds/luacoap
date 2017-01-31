@@ -22,7 +22,7 @@ set (libsmcp ${install_dir}/lib/libsmcp.so)
 include_directories (${install_dir}/include)
 
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/")
-find_package (Lua 5.2 REQUIRED)
+find_package (Lua 5.3 REQUIRED)
 include_directories (${LUA_INCLUDE_DIR})
 
 find_package (Threads REQUIRED)
@@ -36,7 +36,7 @@ set(LINK_FLAGS ${LINK_FLAGS} "-Wl,-whole-archive")
 target_link_libraries (coap ${libsmcp} ${LUA_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 add_dependencies (coap smcp)
 
-install (FILES ${CMAKE_BINARY_DIR}/coap.so DESTINATION lib/lua/5.2)
+install (FILES ${CMAKE_BINARY_DIR}/coap.so DESTINATION lib/lua/5.3)
 
 set (CPACK_GENERATOR "DEB")
 set (CPACK_PACKAGE_NAME ${CMAKE_PROJECT_NAME})
