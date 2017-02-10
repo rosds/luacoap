@@ -1,12 +1,15 @@
+#ifndef LUA_COAP_HH__
+#define LUA_COAP_HH__ value
+
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
 
 #include <luacoap/client.h>
+#include <luacoap/luaclient.h>
 #include <luacoap/listener.h>
 #include <smcp/smcp.h>
 
-#define CLIENT_MT_NAME "coap_client"
 #define COAP_METHOD_OBSERVE 5
 
-typedef struct { smcp_t smcp; } lcoap_userdata;
+#endif /* ifndef LUA_COAP_HH__ */

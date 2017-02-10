@@ -1,3 +1,6 @@
+#ifndef LUA_COAP_LISTENER_HH__
+#define LUA_COAP_LISTENER_HH__
+
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
@@ -29,3 +32,5 @@ int execute_callback(lua_State* L, lcoap_listener* ltnr);
  *  Register the listener table.
  */
 void register_listener_table(lua_State *L);
+
+#endif /* ifndef LUA_COAP_LISTENER__ */
