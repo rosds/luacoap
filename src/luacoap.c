@@ -11,6 +11,28 @@ static int coap_create_client(lua_State *L) {
   return 1;
 }
 
+/** 
+ * A listener is returned by a call to client:observe method
+ */
+static int coap_create_listener(lua_State *L) {
+  lcoap_listener *lntr = (lcoap_listener *)lua_newuserdata(L, sizeof(lcoap_listener));
+  luaL_getmetatable(L, LISTENER_MT_NAME);
+  lua_setmetatable(L, -2);
+  return 1;
+}
+
+static void set_listener_callback(lua_State *L) {
+  // Get the listener object
+  lcoap_listener *ltnr =
+      (lcoap_listener *)luaL_checkudata(L, -1, LISTENER_MT_NAME);
+
+    if (lua_isfunction(L, -2)) {
+      lua_insert(L, -2);
+      store_callback_reference(L, ltnr);
+    }
+}
+
+
 static int coap_client_gc(lua_State *L) {
   int stack = 1;
   lcoap_userdata *cud =
@@ -69,24 +91,23 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     stack++;
   }
 
-  // Only for Observe request, save a reference to a callback function
-  if (lua_isfunction(L, stack)) {
-    lcoap_listener* ltnr = (lcoap_listener*)malloc(sizeof(lcoap_listener));
-    store_callback_reference(L, ltnr);
-    printf("lua ref %d\n", ltnr->lua_func_ref);
-    execute_callback(L, ltnr);
-    free(ltnr);
-  }
 
   char return_content[2048];
   size_t return_content_size = 0;
 
   if (method == COAP_METHOD_OBSERVE) {
-    if (send_request(cud->smcp, COAP_METHOD_GET, tt, url, ct, payload,
-                     payload_len, true, &return_content[0],
-                     &return_content_size) != 0) {
-      luaL_error(L, "Error sending request");
+
+    // Instead of sending a request, it returns a Listener object
+    coap_create_listener(L);
+
+    // Only for Observe request, save a reference to a callback function
+    if (lua_isfunction(L, stack)) {
+      set_listener_callback(L);
+      stack++;
     }
+
+    return 1;
+
   } else {
     if (send_request(cud->smcp, method, tt, url, ct, payload, payload_len,
                      false, &return_content[0], &return_content_size) != 0) {
@@ -128,7 +149,10 @@ int luaopen_coap(lua_State *L) {
   luaL_newmetatable(L, CLIENT_MT_NAME);
   luaL_setfuncs(L, luacoap_client_map, 0);
   lua_pushvalue(L, -1);
-  lua_setfield(L, -1, "__index");
+  lua_setfield(L, -2, "__index");
+
+  // Register the listener object
+  register_listener_table(L);
 
   // Register the coap library
   luaL_newlib(L, luacoap_map);

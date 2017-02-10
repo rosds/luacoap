@@ -6,8 +6,6 @@
 #include <luacoap/listener.h>
 #include <smcp/smcp.h>
 
-#define LISTENER_MT_NAME "coap_listener"
-
 #define CLIENT_MT_NAME "coap_client"
 #define COAP_METHOD_OBSERVE 5
 

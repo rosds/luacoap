@@ -3,6 +3,9 @@
 #include <lualib.h>
 #include <smcp/smcp.h>
 
+// Name for the Lua meta-table
+#define LISTENER_MT_NAME "coap_listener"
+
 /**
  *  Handle observation subscriptions
  */
@@ -17,8 +20,12 @@ typedef struct {
  */
 void store_callback_reference(lua_State* L, lcoap_listener* ltnr);
 
-
 /**
  *  Call the function stored inside the listener.
  */
-void execute_callback(lua_State *L, lcoap_listener* ltnr);
+int execute_callback(lua_State* L, lcoap_listener* ltnr);
+
+/**
+ *  Register the listener table.
+ */
+void register_listener_table(lua_State *L);
