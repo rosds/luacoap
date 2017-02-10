@@ -83,6 +83,8 @@ static smcp_status_t get_response_handler(int statuscode, void* context) {
     // TODO: This might raise some overflows
     memcpy(return_content + *return_content_size, content, content_length);
     *return_content_size = *return_content_size + content_length;
+
+    printf("%s\n", content);
   }
 
 bail:

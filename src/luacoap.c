@@ -1,15 +1,4 @@
-#include <smcp/smcp.h>
-
-#include <lauxlib.h>
-#include <lua.h>
-#include <lualib.h>
-
-#include <luacoap/client.h>
-
-#define CLIENT_MT_NAME "coap_client"
-#define COAP_METHOD_OBSERVE 5
-
-typedef struct lcoap_userdata { smcp_t smcp; } lcoap_userdata;
+#include <luacoap/luacoap.h>
 
 static int coap_create_client(lua_State *L) {
   lcoap_userdata *cud;
@@ -78,6 +67,14 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     payload_len;
     payload = luaL_checklstring(L, stack, &payload_len);
     stack++;
+  }
+
+  // Only for Observe request, save a reference to a callback function
+  if (lua_isfunction(L, stack)) {
+    lcoap_listener* ltnr = (lcoap_listener*)malloc(sizeof(lcoap_listener));
+    store_callback_reference(L, ltnr);
+    printf("lua ref %d\n", ltnr->lua_func_ref);
+    free(ltnr);
   }
 
   char return_content[2048];

@@ -27,8 +27,11 @@ include_directories (${LUA_INCLUDE_DIR})
 
 find_package (Threads REQUIRED)
 
+## Source files
+aux_source_directory (src src_files) 
+
 include_directories (include)
-add_library (coap SHARED src/luacoap.c src/client.c)
+add_library (coap SHARED ${src_files})
 set_target_properties (coap PROPERTIES PREFIX "")
 set_target_properties (coap PROPERTIES CMAKE_POSITION_INDEPENDENT_CODE True)
 
