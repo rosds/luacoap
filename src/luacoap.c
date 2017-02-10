@@ -74,6 +74,7 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     lcoap_listener* ltnr = (lcoap_listener*)malloc(sizeof(lcoap_listener));
     store_callback_reference(L, ltnr);
     printf("lua ref %d\n", ltnr->lua_func_ref);
+    execute_callback(L, ltnr);
     free(ltnr);
   }
 

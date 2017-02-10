@@ -16,3 +16,9 @@ typedef struct {
  *  the stack of the lua state L.
  */
 void store_callback_reference(lua_State* L, lcoap_listener* ltnr);
+
+
+/**
+ *  Call the function stored inside the listener.
+ */
+void execute_callback(lua_State *L, lcoap_listener* ltnr);
