@@ -2,8 +2,7 @@
 
 static int coap_client_gc(lua_State *L) {
   int stack = 1;
-  lcoap_client *cud =
-      (lcoap_client *)luaL_checkudata(L, stack, CLIENT_MT_NAME);
+  lcoap_client *cud = (lcoap_client *)luaL_checkudata(L, stack, CLIENT_MT_NAME);
   luaL_argcheck(L, cud, stack, "Server/Client expected");
   if (cud != NULL) {
     free(cud->smcp);
@@ -12,10 +11,26 @@ static int coap_client_gc(lua_State *L) {
 }
 
 static int coap_create_listener(lua_State *L) {
-  lcoap_listener *lntr = (lcoap_listener *)lua_newuserdata(L, sizeof(lcoap_listener));
+  lcoap_listener_t ltnr =
+      (lcoap_listener_t)lua_newuserdata(L, sizeof(lcoap_listener));
   luaL_getmetatable(L, LISTENER_MT_NAME);
   lua_setmetatable(L, -2);
+
+  // Create the transaction structure.
+  init_listener(ltnr);
+
   return 1;
+}
+
+static lcoap_listener_t get_listener(lua_State *L) {
+  lcoap_listener *ltnr =
+      (lcoap_listener *)luaL_checkudata(L, -1, LISTENER_MT_NAME);
+  return ltnr? ltnr : NULL;
+}
+
+static smcp_transaction_t get_listener_transaction(lua_State *L) {
+  lcoap_listener *ltnr = get_listener(L);
+  return ltnr? ltnr->transaction : NULL;
 }
 
 static void set_listener_callback(lua_State *L) {
@@ -23,12 +38,11 @@ static void set_listener_callback(lua_State *L) {
   lcoap_listener *ltnr =
       (lcoap_listener *)luaL_checkudata(L, -1, LISTENER_MT_NAME);
 
-    if (lua_isfunction(L, -2)) {
-      lua_insert(L, -2);
-      store_callback_reference(L, ltnr);
-    }
+  if (lua_isfunction(L, -2)) {
+    lua_insert(L, -2);
+    store_callback_reference(L, ltnr);
+  }
 }
-
 
 static int coap_client_send_request(coap_code_t method, lua_State *L) {
   coap_transaction_type_t tt = COAP_TRANS_TYPE_CONFIRMABLE;
@@ -36,8 +50,7 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
 
   // Get the coap client
   int stack = 1;
-  lcoap_client *cud =
-      (lcoap_client *)luaL_checkudata(L, stack, CLIENT_MT_NAME);
+  lcoap_client *cud = (lcoap_client *)luaL_checkudata(L, stack, CLIENT_MT_NAME);
   luaL_argcheck(L, cud, stack, "Client expected");
   if (cud == NULL) {
     return luaL_error(L, "First argument is not of class Client");
@@ -81,7 +94,6 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
   size_t return_content_size = 0;
 
   if (method == COAP_METHOD_OBSERVE) {
-
     // Instead of sending a request, it returns a Listener object
     coap_create_listener(L);
 
@@ -90,6 +102,15 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
       set_listener_callback(L);
       stack++;
     }
+
+    // Create the CoAP request
+    request_t req =
+        create_request(method, tt, url, ct, payload, payload_len, true, get_listener(L));
+
+    // Send the request
+    settup_observe_request(cud->smcp, req, get_listener_transaction(L));
+
+    free(req);
 
     return 1;
 

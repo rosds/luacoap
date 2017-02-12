@@ -15,7 +15,15 @@
 typedef struct {
   smcp_t* smcp;
   int lua_func_ref; /**< Reference to the lua callback function */
+  smcp_transaction_t transaction;
 } lcoap_listener;
+
+typedef lcoap_listener* lcoap_listener_t;
+
+/**
+ *  Create the transaction structure.
+ */
+void init_listener(lcoap_listener_t ltnr);
 
 /**
  *  Stores a reference in the listener structure to the object in the top of
@@ -31,6 +39,6 @@ int execute_callback(lua_State* L, lcoap_listener* ltnr);
 /**
  *  Register the listener table.
  */
-void register_listener_table(lua_State *L);
+void register_listener_table(lua_State* L);
 
 #endif /* ifndef LUA_COAP_LISTENER__ */

@@ -1,21 +1,7 @@
 #include <luacoap/client.h>
 
-typedef struct {
-  const char* url;
-
-  const char* content;
-  coap_size_t content_len;
-  coap_content_type_t ct;
-
-  cms_t timeout;
-
-  coap_code_t outbound_code;
-  coap_transaction_type_t outbound_tt;
-  coap_code_t expected_code;
-} request_s;
-
-static char *return_content;
-static size_t *return_content_size;
+static char* return_content;
+static size_t* return_content_size;
 
 static bool observe;
 static int gRet;
@@ -154,9 +140,29 @@ static int create_transaction(smcp_t smcp, void* request) {
   return gRet;
 }
 
+request_t create_request(coap_code_t method, int get_tt, const char* url,
+                         coap_content_type_t ct, const char* payload,
+                         size_t payload_length, bool obs, lcoap_listener_t ltnr) {
+  request_t request = (request_t)malloc(sizeof(request_s));
+
+  memset(request, 0, sizeof(request_s));
+  request->outbound_code = method;
+  request->outbound_tt = get_tt;
+  request->expected_code = COAP_RESULT_205_CONTENT;
+  request->url = url;
+  request->content = payload;
+  request->content_len = payload_length;
+  request->ct = ct;
+  request->timeout = obs ? CMS_DISTANT_FUTURE : 30 * MSEC_PER_SEC;
+  request->listener = ltnr;
+
+  return request;
+}
+
 int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char* url,
                  coap_content_type_t ct, const char* payload,
-                 size_t payload_length, bool obs, char *output_content, size_t *output_size) {
+                 size_t payload_length, bool obs, char* output_content,
+                 size_t* output_size) {
   gRet = ERRORCODE_INPROGRESS;
   observe = obs;
 
@@ -180,4 +186,26 @@ int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char* url,
   return_content = output_content;
 
   return create_transaction(smcp, (void*)&request_data);
+}
+
+static void set_transaction(smcp_t smcp, void* request, smcp_transaction_t t) {
+  previous_sigint_handler = signal(SIGINT, &signal_interrupt);
+
+  int flags = SMCP_TRANSACTION_ALWAYS_INVALIDATE;
+
+  if (observe) flags |= SMCP_TRANSACTION_OBSERVE;
+
+  smcp_transaction_end(smcp, t);
+  smcp_transaction_init(t, flags, (void*)&resend_get_request,
+                        (void*)&get_response_handler, request);
+}
+
+int settup_observe_request(smcp_t smcp, request_t request,
+                           smcp_transaction_t t) {
+  gRet = ERRORCODE_INPROGRESS;
+  observe = true;
+
+  set_transaction(smcp, request, t);
+
+  return 0;
 }
