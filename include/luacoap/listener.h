@@ -1,6 +1,8 @@
 #ifndef LUA_COAP_LISTENER_HH__
 #define LUA_COAP_LISTENER_HH__
 
+#include <unistd.h>
+#include <pthread.h>
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>

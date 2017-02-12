@@ -1,16 +1,16 @@
 #include <luacoap/listener.h>
 
 void init_listener(lcoap_listener_t ltnr) {
-  ltnr->transaction = (smcp_transaction_t) malloc (sizeof(struct smcp_transaction_s));
+  ltnr->transaction =
+      (smcp_transaction_t)malloc(sizeof(struct smcp_transaction_s));
 }
 
-static void destroy_listener(lcoap_listener_t ltnr) {
-  free(ltnr->transaction);
-}
+static void destroy_listener(lcoap_listener_t ltnr) { free(ltnr->transaction); }
 
 static int coap_listener_gc(lua_State *L) {
   int stack = 1;
-  lcoap_listener_t ltnr = (lcoap_listener_t)luaL_checkudata(L, stack, LISTENER_MT_NAME);
+  lcoap_listener_t ltnr =
+      (lcoap_listener_t)luaL_checkudata(L, stack, LISTENER_MT_NAME);
   destroy_listener(ltnr);
   return 0;
 }
@@ -24,8 +24,31 @@ static int method_callback(lua_State *L) {
   return execute_callback(L, ltnr);
 }
 
+static void* thread_function(void *data) {
+  int i = 0;
+  for (; i < 10; i++) {
+    printf("Hola soy un thread\n");
+    sleep(1);
+  }
+}
+
+static int method_listen(lua_State *L) {
+  pthread_t t;
+
+  // Launch the thread
+  pthread_create(&t, NULL, thread_function, NULL);
+
+  // Wait for the thread;
+  pthread_join(t, NULL);
+
+  return 0;
+}
+
 static const struct luaL_Reg luacoap_listener_map[] = {
-    {"callback", method_callback}, {"__gc", coap_listener_gc}, {NULL, NULL}};
+    {"callback", method_callback},
+    {"listen", method_listen},
+    {"__gc", coap_listener_gc},
+    {NULL, NULL}};
 
 void store_callback_reference(lua_State *L, lcoap_listener *ltnr) {
   ltnr->lua_func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
