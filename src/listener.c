@@ -1,17 +1,23 @@
 #include <luacoap/listener.h>
 
-void init_listener(lcoap_listener_t ltnr) {
-  ltnr->transaction =
-      (smcp_transaction_t)malloc(sizeof(struct smcp_transaction_s));
+static int coap_listener_gc(lua_State *L) {
+  lcoap_listener_t ltnr =
+      (lcoap_listener_t)luaL_checkudata(L, 1, LISTENER_MT_NAME);
+
+  // Stop the smcp processing
+  pthread_cancel(ltnr->thread);
+
+  // Finish the transacition
+  smcp_transaction_end(ltnr->smcp, &ltnr->transaction);
+  pthread_mutex_destroy(&ltnr->suspend_mutex);
+  pthread_cond_destroy(&ltnr->cond_resume);
+
+  return 0;
 }
 
-static void destroy_listener(lcoap_listener_t ltnr) { free(ltnr->transaction); }
-
-static int coap_listener_gc(lua_State *L) {
-  int stack = 1;
-  lcoap_listener_t ltnr =
-      (lcoap_listener_t)luaL_checkudata(L, stack, LISTENER_MT_NAME);
-  destroy_listener(ltnr);
+static int execute_callback(lua_State *L, lcoap_listener *ltnr) {
+  lua_rawgeti(L, LUA_REGISTRYINDEX, ltnr->lua_func_ref);
+  lua_pcall(L, 0, 0, 0);
   return 0;
 }
 
@@ -24,40 +30,113 @@ static int method_callback(lua_State *L) {
   return execute_callback(L, ltnr);
 }
 
-static void* thread_function(void *data) {
-  int i = 0;
-  for (; i < 10; i++) {
-    printf("Hola soy un thread\n");
-    sleep(1);
-  }
+static void *thread_function(void *listener) {
+  listener_status_t status;
+  lcoap_listener_t ltnr = (lcoap_listener_t)listener;
+
+  do {
+    pthread_mutex_lock(&ltnr->suspend_mutex);
+    if (ltnr->suspend != 0) {
+      pthread_cond_wait(&ltnr->cond_resume, &ltnr->suspend_mutex);
+    } else if (ltnr->stop != 0) {
+      break;
+    }
+    pthread_mutex_unlock(&ltnr->suspend_mutex);
+
+    smcp_wait(ltnr->smcp, 1000);
+    smcp_process(ltnr->smcp);
+
+  } while (status == LISTENER_STATUS_LISTENING);
 }
 
-static int method_listen(lua_State *L) {
-  pthread_t t;
+static int start_listening(lua_State *L) {
+  lcoap_listener_t ltnr =
+      (lcoap_listener_t)luaL_checkudata(L, -1, LISTENER_MT_NAME);
+
+  pthread_mutex_init(&ltnr->suspend_mutex, NULL);
+  pthread_cond_init(&ltnr->cond_resume, NULL);
+  ltnr->suspend = 0;
+  ltnr->stop = 0;
+
+  smcp_status_t status;
+  status = smcp_transaction_begin(ltnr->smcp, &ltnr->transaction,
+                                  30 * MSEC_PER_SEC);
+
+  if (status) {
+    fprintf(stderr, "smcp_begin_transaction_old() returned %d(%s).\n",
+            status, smcp_status_to_cstr(status));
+  }
 
   // Launch the thread
-  pthread_create(&t, NULL, thread_function, NULL);
+  pthread_create(&ltnr->thread, NULL, thread_function, (void *)ltnr);
+  return 0;
+}
 
-  // Wait for the thread;
-  pthread_join(t, NULL);
+static int stop_listening(lua_State *L) {
+  lcoap_listener_t ltnr =
+      (lcoap_listener_t)luaL_checkudata(L, -1, LISTENER_MT_NAME);
+
+  pthread_mutex_lock(&ltnr->suspend_mutex);
+  ltnr->stop = 1;
+  pthread_mutex_unlock(&ltnr->suspend_mutex);
+
+  // Stop the smcp processing
+  pthread_join(ltnr->thread, NULL);
+
+  // Finish the transacition
+  smcp_transaction_end(ltnr->smcp, &ltnr->transaction);
+
+  pthread_mutex_destroy(&ltnr->suspend_mutex);
+  pthread_cond_destroy(&ltnr->cond_resume);
+  ltnr->suspend = 0;
+  ltnr->stop = 0;
+  return 0;
+}
+
+static int pause_listening(lua_State *L) {
+  lcoap_listener_t ltnr =
+      (lcoap_listener_t)luaL_checkudata(L, -1, LISTENER_MT_NAME);
+
+  pthread_mutex_lock(&ltnr->suspend_mutex);
+  ltnr->suspend = 1;
+  pthread_mutex_unlock(&ltnr->suspend_mutex);
+
+  return 0;
+}
+
+static int continue_listening(lua_State *L) {
+  lcoap_listener_t ltnr =
+      (lcoap_listener_t)luaL_checkudata(L, -1, LISTENER_MT_NAME);
+
+  pthread_mutex_lock(&ltnr->suspend_mutex);
+  ltnr->suspend = 0;
+  pthread_cond_signal(&ltnr->cond_resume);
+  pthread_mutex_unlock(&ltnr->suspend_mutex);
+
+  return 0;
+}
+
+int method_listen(lua_State *L) {
+  // Get the listener object
+  lcoap_listener *ltnr =
+      (lcoap_listener *)luaL_checkudata(L, -1, LISTENER_MT_NAME);
+
+  start_listening(L);
 
   return 0;
 }
 
 static const struct luaL_Reg luacoap_listener_map[] = {
     {"callback", method_callback},
-    {"listen", method_listen},
+    {"listen", start_listening},
+    {"pause", pause_listening},
+    {"continue", continue_listening},
+    {"stop", stop_listening},
     {"__gc", coap_listener_gc},
     {NULL, NULL}};
 
 void store_callback_reference(lua_State *L, lcoap_listener *ltnr) {
   ltnr->lua_func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-}
-
-int execute_callback(lua_State *L, lcoap_listener *ltnr) {
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ltnr->lua_func_ref);
-  lua_pcall(L, 0, 0, 0);
-  return 0;
 }
 
 void register_listener_table(lua_State *L) {

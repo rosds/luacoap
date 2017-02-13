@@ -15,6 +15,10 @@ static smcp_status_t get_response_handler(int statuscode, void* context) {
   const char* content = (const char*)smcp_inbound_get_content_ptr();
   coap_size_t content_length = smcp_inbound_get_content_len();
 
+  if (!context) {
+    fprintf(stderr, "[response handler] No context structure");
+  }
+
   if (statuscode >= 0) {
     if (content_length > (smcp_inbound_get_packet_length() - 4)) {
       fprintf(stderr,
@@ -67,8 +71,8 @@ static smcp_status_t get_response_handler(int statuscode, void* context) {
 
     // Write the content to the user buffer
     // TODO: This might raise some overflows
-    memcpy(return_content + *return_content_size, content, content_length);
-    *return_content_size = *return_content_size + content_length;
+    /*memcpy(return_content + *return_content_size, content, content_length);*/
+    /**return_content_size = *return_content_size + content_length;*/
 
     printf("%s\n", content);
   }
@@ -140,11 +144,10 @@ static int create_transaction(smcp_t smcp, void* request) {
   return gRet;
 }
 
-request_t create_request(coap_code_t method, int get_tt, const char* url,
-                         coap_content_type_t ct, const char* payload,
-                         size_t payload_length, bool obs, lcoap_listener_t ltnr) {
-  request_t request = (request_t)malloc(sizeof(request_s));
-
+request_t create_request(request_t request, coap_code_t method, int get_tt,
+                         const char* url, coap_content_type_t ct,
+                         const char* payload, size_t payload_length, bool obs,
+                         void* data) {
   memset(request, 0, sizeof(request_s));
   request->outbound_code = method;
   request->outbound_tt = get_tt;
@@ -154,7 +157,7 @@ request_t create_request(coap_code_t method, int get_tt, const char* url,
   request->content_len = payload_length;
   request->ct = ct;
   request->timeout = obs ? CMS_DISTANT_FUTURE : 30 * MSEC_PER_SEC;
-  request->listener = ltnr;
+  request->data = data;
 
   return request;
 }
@@ -191,9 +194,7 @@ int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char* url,
 static void set_transaction(smcp_t smcp, void* request, smcp_transaction_t t) {
   previous_sigint_handler = signal(SIGINT, &signal_interrupt);
 
-  int flags = SMCP_TRANSACTION_ALWAYS_INVALIDATE;
-
-  if (observe) flags |= SMCP_TRANSACTION_OBSERVE;
+  int flags = SMCP_TRANSACTION_ALWAYS_INVALIDATE | SMCP_TRANSACTION_OBSERVE;
 
   smcp_transaction_end(smcp, t);
   smcp_transaction_init(t, flags, (void*)&resend_get_request,

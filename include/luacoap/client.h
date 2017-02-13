@@ -2,10 +2,9 @@
 #define COAP_CLIENT_HH__
 
 #include <signal.h>
+
 #include <smcp/assert-macros.h>
 #include <smcp/smcp.h>
-
-#include <luacoap/listener.h>
 
 #define ERRORCODE_OK (0)
 #define ERRORCODE_HELP (1)
@@ -28,27 +27,25 @@
  *  Request Context Structure.
  */
 typedef struct {
-  const char *url;
+  const char *url;                        /**< CoAP resource URL */
+  const char *content;                    /**< Playload */
+  coap_size_t content_len;                /**< Playload length */
+  coap_content_type_t ct;                 /**< Content type */
 
-  const char *content;
-  coap_size_t content_len;
-  coap_content_type_t ct;
-
-  cms_t timeout;
+  cms_t timeout;                          /**< Request timeout */
 
   coap_code_t outbound_code;
   coap_transaction_type_t outbound_tt;
   coap_code_t expected_code;
 
-  // Listener reference for callback action
-  lcoap_listener_t listener;
+  void* data;
 } request_s;
 
 typedef request_s *request_t;
 
-request_t create_request(coap_code_t method, int get_tt, const char *url,
+request_t create_request(request_t request, coap_code_t method, int get_tt, const char *url,
                          coap_content_type_t ct, const char *payload,
-                         size_t payload_length, bool observe, lcoap_listener_t ltnr);
+                         size_t payload_length, bool observe, void* data);
 
 int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char *url,
                  coap_content_type_t ct, const char *payload,

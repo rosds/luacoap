@@ -10,14 +10,14 @@ static int coap_client_gc(lua_State *L) {
   return 0;
 }
 
-static int coap_create_listener(lua_State *L) {
+static int coap_create_listener(lua_State *L, smcp_t smcp) {
   lcoap_listener_t ltnr =
       (lcoap_listener_t)lua_newuserdata(L, sizeof(lcoap_listener));
   luaL_getmetatable(L, LISTENER_MT_NAME);
   lua_setmetatable(L, -2);
 
-  // Create the transaction structure.
-  init_listener(ltnr);
+  // Keep a reference to the smcp client
+  ltnr->smcp = smcp;
 
   return 1;
 }
@@ -26,11 +26,6 @@ static lcoap_listener_t get_listener(lua_State *L) {
   lcoap_listener *ltnr =
       (lcoap_listener *)luaL_checkudata(L, -1, LISTENER_MT_NAME);
   return ltnr? ltnr : NULL;
-}
-
-static smcp_transaction_t get_listener_transaction(lua_State *L) {
-  lcoap_listener *ltnr = get_listener(L);
-  return ltnr? ltnr->transaction : NULL;
 }
 
 static void set_listener_callback(lua_State *L) {
@@ -94,8 +89,9 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
   size_t return_content_size = 0;
 
   if (method == COAP_METHOD_OBSERVE) {
+
     // Instead of sending a request, it returns a Listener object
-    coap_create_listener(L);
+    coap_create_listener(L, cud->smcp);
 
     // Only for Observe request, save a reference to a callback function
     if (lua_isfunction(L, stack)) {
@@ -104,13 +100,12 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     }
 
     // Create the CoAP request
-    request_t req =
-        create_request(method, tt, url, ct, payload, payload_len, true, get_listener(L));
+    lcoap_listener_t ltnr = get_listener(L);
+
+    create_request(&ltnr->request, COAP_METHOD_GET, tt, url, ct, payload, payload_len, true, ltnr);
 
     // Send the request
-    settup_observe_request(cud->smcp, req, get_listener_transaction(L));
-
-    free(req);
+    settup_observe_request(cud->smcp, &ltnr->request, &ltnr->transaction);
 
     return 1;
 
