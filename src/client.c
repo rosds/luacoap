@@ -69,12 +69,19 @@ static smcp_status_t get_response_handler(int statuscode, void* context) {
       }
     }
 
+    // TODO: Think about this better
+    if (context) {
+      request_t req = (request_t)context;
+
+      if (req->data) {
+        req->callback(req->data, content, content_length); 
+      }
+    }
+
     // Write the content to the user buffer
     // TODO: This might raise some overflows
     /*memcpy(return_content + *return_content_size, content, content_length);*/
     /**return_content_size = *return_content_size + content_length;*/
-
-    printf("%s\n", content);
   }
 
 bail:
@@ -147,7 +154,7 @@ static int create_transaction(smcp_t smcp, void* request) {
 request_t create_request(request_t request, coap_code_t method, int get_tt,
                          const char* url, coap_content_type_t ct,
                          const char* payload, size_t payload_length, bool obs,
-                         void* data) {
+                         void* data, void*(*cb)(void*, const char*, size_t)) {
   memset(request, 0, sizeof(request_s));
   request->outbound_code = method;
   request->outbound_tt = get_tt;
@@ -158,6 +165,7 @@ request_t create_request(request_t request, coap_code_t method, int get_tt,
   request->ct = ct;
   request->timeout = obs ? CMS_DISTANT_FUTURE : 30 * MSEC_PER_SEC;
   request->data = data;
+  request->callback = cb;
 
   return request;
 }

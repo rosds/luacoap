@@ -39,6 +39,11 @@ static void set_listener_callback(lua_State *L) {
   }
 }
 
+static void* execute_callback(void* listener, const char* payload, size_t length) {
+  lcoap_listener_t ltnr = (lcoap_listener_t)listener;
+  execute_listener_callback_with_payload(ltnr, payload, length);
+}
+
 static int coap_client_send_request(coap_code_t method, lua_State *L) {
   coap_transaction_type_t tt = COAP_TRANS_TYPE_CONFIRMABLE;
   coap_content_type_t ct = COAP_CONTENT_TYPE_TEXT_PLAIN;
@@ -102,7 +107,7 @@ static int coap_client_send_request(coap_code_t method, lua_State *L) {
     // Create the CoAP request
     lcoap_listener_t ltnr = get_listener(L);
 
-    create_request(&ltnr->request, COAP_METHOD_GET, tt, url, ct, payload, payload_len, true, ltnr);
+    create_request(&ltnr->request, COAP_METHOD_GET, tt, url, ct, payload, payload_len, true, ltnr, execute_callback);
 
     // Send the request
     settup_observe_request(cud->smcp, &ltnr->request, &ltnr->transaction);

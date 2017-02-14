@@ -15,10 +15,29 @@ static int coap_listener_gc(lua_State *L) {
   return 0;
 }
 
-static int execute_callback(lua_State *L, lcoap_listener *ltnr) {
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ltnr->lua_func_ref);
-  lua_pcall(L, 0, 0, 0);
+static int execute_callback(lcoap_listener_t ltnr) {
+  lua_rawgeti(ltnr->L, LUA_REGISTRYINDEX, ltnr->lua_func_ref);
+  
+  lua_pcall(ltnr->L, 1, 0, 0);
   return 0;
+}
+
+static int execute_callback_with_payload(lcoap_listener_t ltnr, const char* p, size_t l) {
+  lua_rawgeti(ltnr->L, LUA_REGISTRYINDEX, ltnr->lua_func_ref);
+  
+  // push payload argument
+  lua_pushlstring(ltnr->L, p, l);
+
+  lua_pcall(ltnr->L, 1, 0, 0);
+  return 0;
+}
+
+void execute_listener_callback(lcoap_listener_t ltnr) {
+  execute_callback(ltnr);
+}
+
+void execute_listener_callback_with_payload(lcoap_listener_t ltnr, const char* p, size_t l) {
+  execute_callback_with_payload(ltnr, p, l);
 }
 
 static int method_callback(lua_State *L) {
@@ -27,7 +46,7 @@ static int method_callback(lua_State *L) {
       (lcoap_listener *)luaL_checkudata(L, 1, LISTENER_MT_NAME);
   luaL_argcheck(L, ltnr, 1, "Listener expected");
 
-  return execute_callback(L, ltnr);
+  return execute_callback(ltnr);
 }
 
 static void *thread_function(void *listener) {
@@ -136,6 +155,7 @@ static const struct luaL_Reg luacoap_listener_map[] = {
     {NULL, NULL}};
 
 void store_callback_reference(lua_State *L, lcoap_listener *ltnr) {
+  ltnr->L = L;
   ltnr->lua_func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 }
 

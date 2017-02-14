@@ -27,9 +27,12 @@ typedef enum {
  */
 typedef struct {
   smcp_t smcp;                           /**< CoAP client reference */
-  int lua_func_ref;                      /**< Reference to the lua callback function */
   request_s request;                     /**< CoAP request structure */
   struct smcp_transaction_s transaction; /**< SMCP transaction structure */
+
+  // Callback 
+  int lua_func_ref;                      /**< Reference to the lua callback function */
+  lua_State* L;
 
   // Thread Control
   pthread_t thread;                      /**< SMCP process thread */
@@ -51,6 +54,12 @@ void store_callback_reference(lua_State* L, lcoap_listener* ltnr);
  *  Register the listener table.
  */
 void register_listener_table(lua_State* L);
+
+/**
+ * Executes the callback in the referenced lua state.
+ */
+void execute_listener_callback(lcoap_listener_t ltnr);
+void execute_listener_callback_with_payload(lcoap_listener_t ltnr, const char* p, size_t l);
 
 // TODO: remove this, only for debugging
 int method_listen(lua_State* L);
