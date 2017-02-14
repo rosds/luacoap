@@ -31,7 +31,6 @@ typedef struct {
   const char *content;                    /**< Playload */
   coap_size_t content_len;                /**< Playload length */
   coap_content_type_t ct;                 /**< Content type */
-
   cms_t timeout;                          /**< Request timeout */
 
   coap_code_t outbound_code;
@@ -41,7 +40,6 @@ typedef struct {
   // Callback
   void* data;
   void* (*callback)(void *, const char* payload, size_t payload_length);
-
 } request_s;
 
 typedef request_s *request_t;
@@ -50,10 +48,7 @@ request_t create_request(request_t request, coap_code_t method, int get_tt, cons
                          coap_content_type_t ct, const char *payload,
                          size_t payload_length, bool observe, void* data, void*(*cb)(void*, const char*, size_t));
 
-int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char *url,
-                 coap_content_type_t ct, const char *payload,
-                 size_t payload_length, bool observe, char *output_content,
-                 size_t *content_size);
+int send_request(smcp_t smcp, request_t req);
 
 int settup_observe_request(smcp_t smcp, request_t request, smcp_transaction_t t);
 

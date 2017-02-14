@@ -12,6 +12,7 @@
 #define CLIENT_MT_NAME "coap_client"
 #define COAP_METHOD_OBSERVE 5
 
+// Just keeps the smcp client
 typedef struct { smcp_t smcp; } lcoap_client;
 
 /**

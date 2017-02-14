@@ -15,24 +15,18 @@
 // Name for the Lua meta-table
 #define LISTENER_MT_NAME "coap_listener"
 
-typedef enum {
-  LISTENER_STATUS_LISTENING,
-  LISTENER_STATUS_PAUSED,
-  LISTENER_STATUS_STOPPING,
-  LISTENER_STATUS_STOPPED
-} listener_status_t;
-
 /**
- *  Handle observation subscriptions
+ *  Listener Structure
  */
 typedef struct {
+  // smcp stuff
   smcp_t smcp;                           /**< CoAP client reference */
   request_s request;                     /**< CoAP request structure */
   struct smcp_transaction_s transaction; /**< SMCP transaction structure */
 
   // Callback 
   int lua_func_ref;                      /**< Reference to the lua callback function */
-  lua_State* L;
+  lua_State* L;                          /**< Lua state with the callback function */
 
   // Thread Control
   pthread_t thread;                      /**< SMCP process thread */
@@ -45,23 +39,19 @@ typedef struct {
 typedef lcoap_listener* lcoap_listener_t;
 
 /**
- *  Stores a reference in the listener structure to the object in the top of
- *  the stack of the lua state L.
- */
-void store_callback_reference(lua_State* L, lcoap_listener* ltnr);
-
-/**
  *  Register the listener table.
  */
 void register_listener_table(lua_State* L);
 
 /**
+ *  Create a Lua table Listener
+ */
+lcoap_listener_t lua_create_listener(lua_State* L, smcp_t smcp, int func_ref);
+
+/**
  * Executes the callback in the referenced lua state.
  */
-void execute_listener_callback(lcoap_listener_t ltnr);
-void execute_listener_callback_with_payload(lcoap_listener_t ltnr, const char* p, size_t l);
-
-// TODO: remove this, only for debugging
-int method_listen(lua_State* L);
+int execute_listener_callback(lcoap_listener_t ltnr);
+int execute_listener_callback_with_payload(lcoap_listener_t ltnr, const char* p, size_t l);
 
 #endif /* ifndef LUA_COAP_LISTENER__ */

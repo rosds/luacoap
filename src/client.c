@@ -1,8 +1,5 @@
 #include <luacoap/client.h>
 
-static char* return_content;
-static size_t* return_content_size;
-
 static bool observe;
 static int gRet;
 static sig_t previous_sigint_handler;
@@ -11,13 +8,110 @@ static void signal_interrupt(int sig) {
   signal(SIGINT, previous_sigint_handler);
 }
 
-static smcp_status_t get_response_handler(int statuscode, void* context) {
-  const char* content = (const char*)smcp_inbound_get_content_ptr();
-  coap_size_t content_length = smcp_inbound_get_content_len();
 
-  if (!context) {
-    fprintf(stderr, "[response handler] No context structure");
+static smcp_status_t resend_get_request(void* context);
+static smcp_status_t get_response_handler(int statuscode, void* context);
+
+request_t create_request(request_t request, coap_code_t method, int get_tt,
+                         const char* url, coap_content_type_t ct,
+                         const char* payload, size_t payload_length, bool obs,
+                         void* data, void* (*cb)(void*, const char*, size_t)) {
+
+  memset(request, 0, sizeof(request_s));
+  request->outbound_code = method;
+  request->outbound_tt = get_tt;
+  request->expected_code = COAP_RESULT_205_CONTENT;
+  request->url = url;
+  request->content = payload;
+  request->content_len = payload_length;
+  request->ct = ct;
+  request->timeout = obs ? CMS_DISTANT_FUTURE : 30 * MSEC_PER_SEC;
+  request->data = data;
+  request->callback = cb;
+
+  return request;
+}
+
+int send_request(smcp_t smcp, request_t request) {
+  gRet = ERRORCODE_INPROGRESS;
+  observe = false;
+
+  smcp_status_t status = 0;
+  struct smcp_transaction_s transaction;
+  previous_sigint_handler = signal(SIGINT, &signal_interrupt);
+
+  int flags = SMCP_TRANSACTION_ALWAYS_INVALIDATE;
+
+  smcp_transaction_end(smcp, &transaction);
+  smcp_transaction_init(&transaction, flags, (void*)&resend_get_request,
+                        (void*)&get_response_handler, request);
+
+  status = smcp_transaction_begin(smcp, &transaction, 30 * MSEC_PER_SEC);
+
+  if (status) {
+    fprintf(stderr, "smcp_begin_transaction_old() returned %d(%s).\n", status,
+            smcp_status_to_cstr(status));
+    return false;
   }
+
+  while (ERRORCODE_INPROGRESS == gRet) {
+    smcp_wait(smcp, 1000);
+    smcp_process(smcp);
+  }
+
+  smcp_transaction_end(smcp, &transaction);
+  signal(SIGINT, previous_sigint_handler);
+  return gRet;
+}
+
+int settup_observe_request(smcp_t smcp, request_t request,
+                           smcp_transaction_t t) {
+  gRet = ERRORCODE_INPROGRESS;
+  observe = true;
+
+  int flags = SMCP_TRANSACTION_ALWAYS_INVALIDATE | SMCP_TRANSACTION_OBSERVE;
+
+  smcp_transaction_end(smcp, t);
+  smcp_transaction_init(t, flags, (void*)&resend_get_request,
+                        (void*)&get_response_handler, request);
+
+  return 0;
+}
+
+static smcp_status_t resend_get_request(void* context) {
+  request_s* request = (request_s*)context;
+  smcp_status_t status = 0;
+
+  status = smcp_outbound_begin(smcp_get_current_instance(),
+                               request->outbound_code, request->outbound_tt);
+  require_noerr(status, bail);
+
+  status = smcp_outbound_set_uri(request->url, 0);
+  require_noerr(status, bail);
+
+  if (request->content) {
+    status =
+        smcp_outbound_add_option_uint(COAP_OPTION_CONTENT_TYPE, request->ct);
+    require_noerr(status, bail);
+
+    status =
+        smcp_outbound_append_content(request->content, request->content_len);
+    require_noerr(status, bail);
+  }
+
+  status = smcp_outbound_send();
+
+  if (status) {
+    fprintf(stderr, "smcp_outbound_send() returned error %d(%s).\n", status,
+            smcp_status_to_cstr(status));
+  }
+bail:
+  return status;
+}
+
+static smcp_status_t get_response_handler(int statuscode, void* context) {
+  const char* content = smcp_inbound_get_content_ptr();
+  coap_size_t content_length = smcp_inbound_get_content_len();
 
   if (statuscode >= 0) {
     if (content_length > (smcp_inbound_get_packet_length() - 4)) {
@@ -69,152 +163,16 @@ static smcp_status_t get_response_handler(int statuscode, void* context) {
       }
     }
 
-    // TODO: Think about this better
+    // TODO: Think better about this
     if (context) {
       request_t req = (request_t)context;
 
-      if (req->data) {
-        req->callback(req->data, content, content_length); 
+      if (req->callback) {
+        req->callback(req->data, content, content_length);
       }
     }
-
-    // Write the content to the user buffer
-    // TODO: This might raise some overflows
-    /*memcpy(return_content + *return_content_size, content, content_length);*/
-    /**return_content_size = *return_content_size + content_length;*/
   }
 
 bail:
   return SMCP_STATUS_OK;
-}
-
-static smcp_status_t resend_get_request(void* context) {
-  request_s* request = (request_s*)context;
-  smcp_status_t status = 0;
-
-  status = smcp_outbound_begin(smcp_get_current_instance(),
-                               request->outbound_code, request->outbound_tt);
-  require_noerr(status, bail);
-
-  status = smcp_outbound_set_uri(request->url, 0);
-  require_noerr(status, bail);
-
-  if (request->content) {
-    status =
-        smcp_outbound_add_option_uint(COAP_OPTION_CONTENT_TYPE, request->ct);
-    require_noerr(status, bail);
-
-    status =
-        smcp_outbound_append_content(request->content, request->content_len);
-    require_noerr(status, bail);
-  }
-
-  status = smcp_outbound_send();
-
-  if (status) {
-    fprintf(stderr, "smcp_outbound_send() returned error %d(%s).\n", status,
-            smcp_status_to_cstr(status));
-  }
-
-bail:
-  return status;
-}
-
-static int create_transaction(smcp_t smcp, void* request) {
-  smcp_status_t status = 0;
-  struct smcp_transaction_s transaction;
-  previous_sigint_handler = signal(SIGINT, &signal_interrupt);
-
-  int flags = SMCP_TRANSACTION_ALWAYS_INVALIDATE;
-
-  if (observe) flags |= SMCP_TRANSACTION_OBSERVE;
-
-  smcp_transaction_end(smcp, &transaction);
-  smcp_transaction_init(&transaction, flags, (void*)&resend_get_request,
-                        (void*)&get_response_handler, request);
-
-  status = smcp_transaction_begin(smcp, &transaction, 30 * MSEC_PER_SEC);
-
-  if (status) {
-    fprintf(stderr, "smcp_begin_transaction_old() returned %d(%s).\n", status,
-            smcp_status_to_cstr(status));
-    return false;
-  }
-
-  while (ERRORCODE_INPROGRESS == gRet) {
-    smcp_wait(smcp, 1000);
-    smcp_process(smcp);
-  }
-
-  smcp_transaction_end(smcp, &transaction);
-  signal(SIGINT, previous_sigint_handler);
-  return gRet;
-}
-
-request_t create_request(request_t request, coap_code_t method, int get_tt,
-                         const char* url, coap_content_type_t ct,
-                         const char* payload, size_t payload_length, bool obs,
-                         void* data, void*(*cb)(void*, const char*, size_t)) {
-  memset(request, 0, sizeof(request_s));
-  request->outbound_code = method;
-  request->outbound_tt = get_tt;
-  request->expected_code = COAP_RESULT_205_CONTENT;
-  request->url = url;
-  request->content = payload;
-  request->content_len = payload_length;
-  request->ct = ct;
-  request->timeout = obs ? CMS_DISTANT_FUTURE : 30 * MSEC_PER_SEC;
-  request->data = data;
-  request->callback = cb;
-
-  return request;
-}
-
-int send_request(smcp_t smcp, coap_code_t method, int get_tt, const char* url,
-                 coap_content_type_t ct, const char* payload,
-                 size_t payload_length, bool obs, char* output_content,
-                 size_t* output_size) {
-  gRet = ERRORCODE_INPROGRESS;
-  observe = obs;
-
-  request_s request_data;
-  memset(&request_data, 0, sizeof(request_data));
-  request_data.outbound_code = method;
-  request_data.outbound_tt = get_tt;
-  request_data.expected_code = COAP_RESULT_205_CONTENT;
-  request_data.url = url;
-  request_data.content = payload;
-  request_data.content_len = payload_length;
-  request_data.ct = ct;
-
-  if (observe) {
-    request_data.timeout = CMS_DISTANT_FUTURE;
-  } else {
-    request_data.timeout = 30 * MSEC_PER_SEC;
-  }
-
-  return_content_size = output_size;
-  return_content = output_content;
-
-  return create_transaction(smcp, (void*)&request_data);
-}
-
-static void set_transaction(smcp_t smcp, void* request, smcp_transaction_t t) {
-  previous_sigint_handler = signal(SIGINT, &signal_interrupt);
-
-  int flags = SMCP_TRANSACTION_ALWAYS_INVALIDATE | SMCP_TRANSACTION_OBSERVE;
-
-  smcp_transaction_end(smcp, t);
-  smcp_transaction_init(t, flags, (void*)&resend_get_request,
-                        (void*)&get_response_handler, request);
-}
-
-int settup_observe_request(smcp_t smcp, request_t request,
-                           smcp_transaction_t t) {
-  gRet = ERRORCODE_INPROGRESS;
-  observe = true;
-
-  set_transaction(smcp, request, t);
-
-  return 0;
 }
